@@ -2,12 +2,10 @@
 <html lang="en">
   <head>
     <!--
-      Complete Portfolio v5
-      - Canvas-based trailSpark + click fireworks (fast, smooth, full-page)
-      - Sticky sidebar, aurora + subtle blobs, glass cards, timeline
-      - Loader overlay, magnetic buttons, scroll progress bar
-      - "Hi, I'm Duy Le" loop + flickering underscore cursor
-      - Visitors section with ClustrMaps + total visits badge
+      Complete Portfolio v5 (lightweight)
+      - Canvas-based trailSpark + click fireworks (lighter, full-page)
+      - Faster loader (DOMContentLoaded + short fallback)
+      - Visitors section with MapMyVisitors + total visits badge
     -->
 
     <meta charset="UTF-8" />
@@ -351,16 +349,11 @@
             <div class="flex flex-wrap items-center gap-3">
               <span class="text-sm text-slate-700 dark:text-slate-200">Total visits:</span>
               <img id="hitCounter" alt="Visitor counter badge" loading="lazy" class="h-6" />
-              <span class="text-xs text-slate-500">(counter badge + ClustrMaps below)</span>
             </div>
 
             <div class="mt-4 rounded-xl border border-slate-200/70 dark:border-slate-800/70 overflow-hidden bg-white/60 dark:bg-slate-900/60 backdrop-blur p-2">
-              <div class="w-full flex justify-center">
-                <script type="text/javascript" id="clustrmaps" src="//cdn.clustrmaps.com/map_v2.js?cl=ffffff&w=280&t=tt&d=OzimQgxIrBB4cpsx6wRRhd5RMaheBvl6OCE2i_f25WQ"></script>
-              </div>
+              <div id="mmvMount" class="w-full flex justify-center"></div>
             </div>
-
-            <p class="mt-2 text-xs text-slate-500">Dots show where visitors come from. Map and totals powered by ClustrMaps.</p>
           </section>
         </main>
       </div>
@@ -383,19 +376,20 @@
     </script>
 
     <script>
-      // Loader fade-out
+      // Faster loader (hide on DOM ready + short fallback)
       (function () {
-        const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
         const loader = document.getElementById('loader');
+        const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
         function hide() {
           if (!loader) return;
           if (reduce) { loader.remove(); return; }
-          loader.style.transition = 'opacity .45s ease, visibility 0s linear .45s';
+          loader.style.transition = 'opacity .35s ease, visibility 0s linear .35s';
           loader.style.opacity = '0'; loader.style.visibility = 'hidden';
-          setTimeout(() => loader.remove(), 500);
+          setTimeout(() => loader.remove(), 400);
         }
-        addEventListener('load', hide);
-        setTimeout(hide, 2500);
+        if (document.readyState === 'interactive' || document.readyState === 'complete') hide();
+        else document.addEventListener('DOMContentLoaded', hide, { once: true });
+        setTimeout(hide, 1200); // safety: 1.2s max
       })();
     </script>
 
@@ -476,7 +470,7 @@
       })();
     </script>
 
-    <!-- Canvas trailSpark (smooth, low-latency, full-page) -->
+    <!-- Canvas trailSpark (lighter, full-page, low latency) -->
     <script>
       (function () {
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -484,12 +478,12 @@
 
         const canvas = document.getElementById('fxCanvas');
         const ctx = canvas.getContext('2d', { alpha: true });
-        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+        let dpr = Math.min(window.devicePixelRatio || 1, 1.5); // cap DPR for perf
         let w = 0, h = 0;
 
         function resize() {
           w = innerWidth; h = innerHeight;
-          dpr = Math.min(window.devicePixelRatio || 1, 2);
+          dpr = Math.min(window.devicePixelRatio || 1, 1.5);
           canvas.width = Math.floor(w * dpr);
           canvas.height = Math.floor(h * dpr);
           canvas.style.width = w + 'px';
@@ -499,8 +493,8 @@
         resize();
         addEventListener('resize', resize, { passive: true });
 
-        // Particle pool
-        const MAX = 280;
+        // Particle pool (lighter)
+        const MAX = 160;
         const parts = [];
         let hueBase = document.documentElement.classList.contains('dark') ? 200 : 210;
         let visible = !document.hidden;
@@ -512,29 +506,31 @@
 
         addEventListener('themechange', (e) => { hueBase = e.detail.dark ? 200 : 210; });
 
-        function addParticle(x, y, vx, vy, hue, size=1.8, ttl=70) {
+        function addParticle(x, y, vx, vy, hue, size=1.2, ttl=55) {
           parts.push({ x, y, vx, vy, life: 0, ttl, size, hue });
           if (parts.length > MAX) parts.splice(0, parts.length - MAX);
         }
 
-        // Smoothing + coalesced events (reduces perceived lag)
+        // Coalesced pointer events for smoothness, fewer spawns
         let last = null;
         let colorShift = 0;
         let lastMoveTS = 0;
 
         function spawnTrailPoint(px, py) {
-          // small random velocity for organic motion
           const a = Math.random() * Math.PI * 2;
-          const speed = 0.6 + Math.random() * 0.8;
-          addParticle(px, py, Math.cos(a) * speed, Math.sin(a) * speed,
-                      hueBase + colorShift + (Math.random()*20 - 10),
-                      1.6 + Math.random()*1.6,
-                      60 + Math.random()*40);
+          const speed = 0.45 + Math.random() * 0.55;
+          addParticle(
+            px, py,
+            Math.cos(a) * speed, Math.sin(a) * speed,
+            hueBase + colorShift + (Math.random()*16 - 8),
+            1.0 + Math.random()*0.8,
+            42 + Math.random()*18
+          );
         }
 
         function handlePointerMove(e) {
           const now = performance.now();
-          if (now - lastMoveTS > 140) colorShift = (Math.random() * 120 - 60);
+          if (now - lastMoveTS > 140) colorShift = (Math.random() * 100 - 50);
           lastMoveTS = now;
 
           const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
@@ -543,7 +539,7 @@
             if (!last) { last = { x, y }; spawnTrailPoint(x, y); continue; }
             const dx = x - last.x, dy = y - last.y;
             const dist = Math.hypot(dx, dy);
-            const step = 4; // spawn every ~4px for silky trails
+            const step = 7; // spawn every ~7px (lighter)
             const n = Math.max(1, Math.floor(dist / step));
             for (let i = 1; i <= n; i++) {
               const t = i / n;
@@ -553,30 +549,28 @@
           }
         }
 
-        // Use pointer events for mouse+touch, lower latency
         addEventListener('pointermove', handlePointerMove, { passive: true });
 
-        // Click/tap fireworks + ripple ring
+        // Click/tap fireworks (lighter)
         addEventListener('pointerdown', (e) => {
           const x = e.clientX, y = e.clientY;
-          const count = 18;
-          const burstHue = hueBase + (Math.random()*100 - 50);
+          const count = 12;
+          const burstHue = hueBase + (Math.random()*80 - 40);
           for (let i = 0; i < count; i++) {
             const ang = (i / count) * Math.PI * 2;
-            const spd = 2.4 + Math.random() * 1.6;
-            addParticle(x, y, Math.cos(ang)*spd, Math.sin(ang)*spd,
-                        burstHue + (Math.random()*30 - 15),
-                        2.0 + Math.random()*1.8,
-                        48 + Math.random()*32);
-          }
-          // subtle ripple: encoded as expanding low-alpha particles
-          for (let i = 0; i < 28; i++) {
-            const ang = Math.random() * Math.PI * 2;
-            const spd = 0.5 + Math.random() * 0.6;
-            addParticle(x, y, Math.cos(ang)*spd, Math.sin(ang)*spd,
-                        burstHue, 1.2, 38 + Math.random()*12);
+            const spd = 2.0 + Math.random() * 1.2;
+            addParticle(
+              x, y,
+              Math.cos(ang)*spd, Math.sin(ang)*spd,
+              burstHue + (Math.random()*24 - 12),
+              1.2 + Math.random()*1.2,
+              36 + Math.random()*18
+            );
           }
         }, { passive: true });
+
+        // Draw settings (constant shadow blur to avoid per-particle changes)
+        const SHADOW_BLUR = 8;
 
         // Animation loop
         let raf;
@@ -584,6 +578,7 @@
           if (!visible) return;
           ctx.clearRect(0, 0, w, h);
           ctx.globalCompositeOperation = 'lighter';
+          ctx.shadowBlur = SHADOW_BLUR;
 
           for (let i = parts.length - 1; i >= 0; i--) {
             const p = parts[i];
@@ -591,20 +586,19 @@
             if (p.life > p.ttl) { parts.splice(i, 1); continue; }
 
             // physics
-            p.vx *= 0.985;
-            p.vy = p.vy * 0.985 + 0.020; // gentle gravity
+            p.vx *= 0.986;
+            p.vy = p.vy * 0.986 + 0.018; // gentle gravity
             p.x += p.vx; p.y += p.vy;
 
             // fade & scale
             const t = p.life / p.ttl;
-            const alpha = (1 - t) * 0.75;
-            const size = p.size * (1 - t * 0.55);
+            const alpha = (1 - t) * 0.65;
+            const size = p.size * (1 - t * 0.5);
 
-            // draw glow dot
             ctx.beginPath();
-            ctx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${alpha})`;
-            ctx.shadowBlur = 14;
-            ctx.shadowColor = `hsla(${p.hue}, 90%, 60%, ${alpha})`;
+            const col = `hsla(${p.hue}, 80%, 60%, ${alpha})`;
+            ctx.fillStyle = col;
+            ctx.shadowColor = col;
             ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
             ctx.fill();
           }
@@ -617,8 +611,9 @@
       })();
     </script>
 
-    <!-- Visitors counter badge -->
+    <!-- Visitors: hit counter + lazy-load MapMyVisitors -->
     <script>
+      // Total visits badge
       (function () {
         const img = document.getElementById('hitCounter');
         if (!img) return;
@@ -626,6 +621,32 @@
           const u = encodeURIComponent(location.origin + location.pathname);
           img.src = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${u}&title=Visits`;
         } catch (e) { img.alt = 'Visits'; }
+      })();
+
+      // Lazy-load MapMyVisitors when the section is visible (or after idle)
+      (function () {
+        const MMV_SRC = "//mapmyvisitors.com/map.js?d=NVF7TjPnwJHipX-uOBqj8WNIauO9crtC0y_gf64huAY&cl=ffffff&w=a";
+        let loaded = false;
+        function loadMMV() {
+          if (loaded) return;
+          loaded = true;
+          const s = document.createElement('script');
+          s.type = "text/javascript";
+          s.id = "mapmyvisitors";
+          s.src = MMV_SRC;
+          document.body.appendChild(s);
+        }
+        const section = document.getElementById('visitors');
+        if ('IntersectionObserver' in window && section) {
+          const io = new IntersectionObserver((entries) => {
+            if (entries.some(e => e.isIntersecting)) { loadMMV(); io.disconnect(); }
+          }, { rootMargin: '200px 0px' });
+          io.observe(section);
+        } else if ('requestIdleCallback' in window) {
+          requestIdleCallback(loadMMV, { timeout: 2000 });
+        } else {
+          setTimeout(loadMMV, 1500);
+        }
       })();
     </script>
   </body>
