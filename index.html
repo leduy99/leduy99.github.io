@@ -144,6 +144,26 @@
         transform-origin: left center;
       }
       .dark #scrollProgress { box-shadow: 0 0 12px rgba(45,212,191,.6); }
+
+      /* MapMyVisitors sizing */
+      #mmvWrap {
+        width: 100%;
+        max-width: 680px;      /* control max width */
+        height: 340px;         /* control height */
+        margin: 0 auto;        /* center */
+        overflow: hidden;      /* hide any overflow */
+        border-radius: 0.75rem;
+      }
+      @media (min-width: 640px){
+        #mmvWrap { height: 360px; }
+      }
+      /* force the widget to fill the wrapper */
+      #mmvWrap > *, #mmvMount > * {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+      }
+
     </style>
   </head>
 
@@ -622,19 +642,21 @@
           img.src = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${u}&title=Visits`;
         } catch (e) { img.alt = 'Visits'; }
       })();
-
-      // Lazy-load MapMyVisitors when the section is visible (or after idle)
+    
+      // Lazy-load MapMyVisitors into the sized wrapper
       (function () {
         const MMV_SRC = "//mapmyvisitors.com/map.js?d=NVF7TjPnwJHipX-uOBqj8WNIauO9crtC0y_gf64huAY&cl=ffffff&w=a";
         let loaded = false;
         function loadMMV() {
-          if (loaded) return;
-          loaded = true;
+          if (loaded) return; loaded = true;
+          const mount = document.getElementById('mmvMount');
+          if (!mount) return;
           const s = document.createElement('script');
           s.type = "text/javascript";
           s.id = "mapmyvisitors";
           s.src = MMV_SRC;
-          document.body.appendChild(s);
+          mount.innerHTML = "";          // ensure clean mount point
+          mount.appendChild(s);          // mount INSIDE the wrapper (not body)
         }
         const section = document.getElementById('visitors');
         if ('IntersectionObserver' in window && section) {
@@ -648,6 +670,6 @@
           setTimeout(loadMMV, 1500);
         }
       })();
-    </script>
+    </script>    
   </body>
 </html>
